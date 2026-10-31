@@ -84,6 +84,19 @@ android {
             storePassword 'xrj45yWGLbsO7W0v'
             keyPassword 'xrj45yWGLbsO7W0v'
         }
+        hardened {
+            // Private keystore injected via CI secrets (never committed)
+            def ksB64 = System.getenv("TERMUX_KEYSTORE_B64")
+            if (ksB64) {
+                def ksFile = new File("${buildDir}/hardened-keystore.jks")
+                ksFile.parentFile.mkdirs()
+                ksFile.bytes = new ByteArrayInputStream(ksB64.decodeBase64())
+                storeFile ksFile
+                storePassword System.getenv("TERMUX_KEYSTORE_PASS")
+                keyAlias System.getenv("TERMUX_KEY_ALIAS") ?: "termux-hardened"
+                keyPassword System.getenv("TERMUX_KEYSTORE_PASS")
+            }
+        }
     }
 
     buildTypes {
@@ -91,6 +104,9 @@ android {
             minifyEnabled true
             shrinkResources false // Reproducible builds
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (System.getenv("TERMUX_KEYSTORE_B64")) {
+                signingConfig signingConfigs.hardened
+            }
         }
 
         debug {

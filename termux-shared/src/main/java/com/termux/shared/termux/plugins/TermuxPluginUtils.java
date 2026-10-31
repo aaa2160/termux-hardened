@@ -25,6 +25,7 @@ import com.termux.shared.termux.settings.preferences.TermuxPreferenceConstants;
 import com.termux.shared.shell.command.result.ResultSender;
 import com.termux.shared.shell.ShellUtils;
 import com.termux.shared.android.AndroidUtils;
+import com.termux.shared.android.PendingIntentUtils;
 import com.termux.shared.termux.TermuxConstants;
 import com.termux.shared.termux.TermuxConstants.TERMUX_APP.TERMUX_SERVICE;
 import com.termux.shared.logger.Logger;
@@ -380,11 +381,11 @@ public class TermuxPluginUtils {
         // Must ensure result code for PendingIntents and id for notification are unique otherwise will override previous
         int nextNotificationId = TermuxNotificationUtils.getNextNotificationId(termuxPackageContext);
 
-        PendingIntent contentIntent = PendingIntent.getActivity(termuxPackageContext, nextNotificationId, result.contentIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+        PendingIntent contentIntent = PendingIntent.getActivity(termuxPackageContext, nextNotificationId, result.contentIntent, PendingIntentUtils.getImmutableFlags(PendingIntent.FLAG_UPDATE_CURRENT));
 
         PendingIntent deleteIntent = null;
         if (result.deleteIntent != null)
-            deleteIntent = PendingIntent.getBroadcast(termuxPackageContext, nextNotificationId, result.deleteIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+            deleteIntent = PendingIntent.getBroadcast(termuxPackageContext, nextNotificationId, result.deleteIntent, PendingIntentUtils.getImmutableFlags(PendingIntent.FLAG_UPDATE_CURRENT));
 
         // Setup the notification channel if not already set up
         setupPluginCommandErrorsNotificationChannel(termuxPackageContext);

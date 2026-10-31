@@ -1,4 +1,5 @@
 name: build-termux-hardened
+
 on:
   push:
     branches: [ hardened, main, master ]
@@ -7,40 +8,65 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      TERMUX_KEYSTORE_B64: ${{ secrets.TERMUX_KEYSTORE_B64 }}
+      TERMUX_KEYSTORE_PASS: ${{ secrets.TERMUX_KEYSTORE_PASS }}
+      TERMUX_KEY_ALIAS: ${{ secrets.TERMUX_KEY_ALIAS }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-      - name: Install NDK 29.0.14206865
+
+      - name: Install NDK and platforms (SDK is preinstalled on runners)
         run: |
-          sdkmanager --install "ndk;29.0.14206865" "platforms;android-34" "build-tools;34.0.0"
-          echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/29.0.14206865" >> $GITHUB_ENV
-          echo "NDK_VERSION=29.0.14206865" >> $GITHUB_ENV
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager --install "ndk;29.0.14206865" "platforms;android-36" "build-tools;36.0.0"
+          sdkmanager --list_installed | head -n 30
+
       - name: Gradle cache
         uses: gradle/actions/setup-gradle@v4
-        with:
-          cache-read-only: false
+
+      - name: Build signed release APKs
+        run: ./gradlew assembleRelease --stacktrace --no-daemon
+
       - name: Build debug APKs
+        run: ./gradlew assembleDebug --stacktrace --no-daemon
+
+      - name: Verify signatures and metadata
         run: |
-          chmod +x ./gradlew
-          ./gradlew assembleDebug --stacktrace
-      - name: Verify APK
+          ls -lh app/build/outputs/apk/release/ app/build/outputs/apk/debug/
+          for apk in app/build/outputs/apk/release/*.apk; do
+            echo "=== $apk ==="
+            $ANDROID_HOME/build-tools/36.0.0/apksigner verify --print-certs "$apk" | head -n 6
+            $ANDROID_HOME/build-tools/36.0.0/aapt dump badging "$apk" | grep -E "^package|targetSdk|sdkVersion" || true
+          done
+
+      - name: Publish to GitHub release (hardened-latest)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ls -lh app/build/outputs/apk/debug/*.apk || ls -R app/build/outputs/
-          $ANDROID_SDK_ROOT/build-tools/34.0.0/apksigner verify --print-certs --verbose app/build/outputs/apk/debug/*universal*.apk 2>&1 | head -n 50 || true
-          $ANDROID_SDK_ROOT/build-tools/34.0.0/aapt dump badging app/build/outputs/apk/debug/*universal*.apk 2>&1 | head -n 30 || true
+          gh release delete hardened-latest --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
+          gh release create hardened-latest --repo "$GITHUB_REPOSITORY" \
+            --title "Termux Hardened Build" \
+            --notes "Automated hardened build from commit $GITHUB_SHA.
+
+          - Signed with private 4096-bit RSA key (v1+v2+v3 schemes)
+          - PendingIntent FLAG_IMMUTABLE fixes
+          - Cleartext traffic blocked via networkSecurityConfig
+          - targetSdk per gradle.properties; release build minified (R8)
+
+          Install the arm64-v8a APK on modern phones; universal APK works everywhere." \
+            app/build/outputs/apk/release/*.apk app/build/outputs/apk/debug/*.apk
+
       - uses: actions/upload-artifact@v4
         with:
           name: termux-hardened-apks
-          path: app/build/outputs/apk/debug/*.apk
+          path: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/apk/debug/*.apk
           retention-days: 30
-      - name: Build release (unsigned, for F-Droid style)
-        if: github.ref == 'refs/heads/hardened'
-        run: ./gradlew assembleRelease --stacktrace || echo "release needs keystore - debug is primary"
-
