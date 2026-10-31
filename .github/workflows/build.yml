@@ -24,9 +24,12 @@ jobs:
 
       - name: Install NDK and platforms (SDK is preinstalled on runners)
         run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager --install "ndk;29.0.14206865" "platforms;android-36" "build-tools;36.0.0"
-          sdkmanager --list_installed | head -n 30
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKM="$(ls "$SDK"/cmdline-tools/*/bin/sdkmanager | head -n1)"
+          echo "using sdkmanager: $SDKM"
+          yes | "$SDKM" --licenses >/dev/null || true
+          "$SDKM" --install "ndk;29.0.14206865" "platforms;android-36" "build-tools;36.0.0"
+          "$SDKM" --list_installed | head -n 30
 
       - name: Gradle cache
         uses: gradle/actions/setup-gradle@v4
