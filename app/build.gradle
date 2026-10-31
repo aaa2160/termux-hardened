@@ -90,7 +90,7 @@ android {
             if (ksB64) {
                 def ksFile = new File("${buildDir}/hardened-keystore.jks")
                 ksFile.parentFile.mkdirs()
-                ksFile.bytes = new ByteArrayInputStream(ksB64.decodeBase64())
+                ksFile.bytes = ksB64.decodeBase64()
                 storeFile ksFile
                 storePassword System.getenv("TERMUX_KEYSTORE_PASS")
                 keyAlias System.getenv("TERMUX_KEY_ALIAS") ?: "termux-hardened"
