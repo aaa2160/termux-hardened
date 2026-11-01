@@ -12,6 +12,8 @@ jobs:
       TERMUX_KEYSTORE_B64: ${{ secrets.TERMUX_KEYSTORE_B64 }}
       TERMUX_KEYSTORE_PASS: ${{ secrets.TERMUX_KEYSTORE_PASS }}
       TERMUX_KEY_ALIAS: ${{ secrets.TERMUX_KEY_ALIAS }}
+      TERMUX_APP_VERSION_NAME: 0.118.3-hardened
+      TERMUX_APK_VERSION_TAG: hardened
     steps:
       - uses: actions/checkout@v4
         with:

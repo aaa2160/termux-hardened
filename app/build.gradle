@@ -253,7 +253,7 @@ task downloadBootstraps() {
 }
 
 afterEvaluate {
-    android.applicationVariants.all { variant ->
-        variant.javaCompileProvider.get().dependsOn(downloadBootstraps)
-    }
+    // preBuild is an ancestor of every variant task (native ndk-build included), so the
+    // bootstrap zips are always present before the incbin in termux-bootstrap-zip.S runs.
+    preBuild.dependsOn(downloadBootstraps)
 }
