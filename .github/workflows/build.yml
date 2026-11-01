@@ -5,6 +5,10 @@ on:
     branches: [ hardened, main, master ]
   workflow_dispatch:
 
+concurrency:
+  group: build-termux-hardened
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -67,14 +71,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release delete hardened-latest --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
-          gh release create hardened-latest --repo "$GITHUB_REPOSITORY" \
-            --title "Termux Hardened Build" \
-            --notes "Automated hardened build from commit $GITHUB_SHA.
-
-          - Signed with private 4096-bit RSA key
-          - PendingIntent FLAG_IMMUTABLE fixes
-          - Cleartext traffic blocked via networkSecurityConfig
-          - Release build minified (R8)
-
-          Install the arm64-v8a APK on modern phones; universal APK works everywhere." \
-            app/build/outputs/apk/release/*.apk app/build/outputs/apk/debug/*.apk
+          sleep 5
+          for i in 1 2 3; do
+            if gh release create hardened-latest --repo "$GITHUB_REPOSITORY" \
+                --title "Termux Hardened Build" \
+                --notes "Automated hardened build from commit $GITHUB_SHA. Signed with private 4096-bit RSA key. PendingIntent FLAG_IMMUTABLE, cleartext blocked, R8-minified release." \
+                app/build/outputs/apk/release/*.apk app/build/outputs/apk/debug/*.apk; then
+              echo "release published"
+              break
+            fi
+            echo "attempt $i failed, retrying"
+            gh release delete hardened-latest --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
+            sleep 15
+          done
